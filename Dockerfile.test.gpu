@@ -43,7 +43,10 @@ RUN env | sort
 RUN apt-get update -qq && apt-get install -y --no-install-recommends software-properties-common && \
     rm -rf /var/lib/apt/lists/*
 
-RUN add-apt-repository ppa:ubuntu-toolchain-r/test
+# Adding this repo may fail with "Error: retrieving gpg key timed out" using default keyserver, so adding an alternative keyserver first
+RUN mkdir -p ~/.gnupg/; \
+    echo "keyserver keyserver.ubuntu.com" >> ~/.gnupg/gpg.conf; \
+    add-apt-repository ppa:ubuntu-toolchain-r/test
 
 # Install essential packages.
 RUN CUDNN_MAJOR=$(cut -d '.' -f 1 <<< "${CUDNN_VERSION}"); \
@@ -77,7 +80,7 @@ RUN if [[ ${PYTHON_VERSION} != "3.7" ]]; then \
         wget --progress=dot:mega https://bootstrap.pypa.io/pip/3.7/get-pip.py; \
     fi && python get-pip.py && rm get-pip.py
 
-RUN pip install --no-cache-dir -U --force requests pytest mock pytest-forked parameterized
+RUN pip install --no-cache-dir -U --force requests "pytest<8" mock pytest-forked parameterized
 
 # Add launch helper scripts
 RUN echo "env SPARK_HOME=/spark SPARK_DRIVER_MEM=512m PYSPARK_PYTHON=/usr/bin/python${PYTHON_VERSION} PYSPARK_DRIVER_PYTHON=/usr/bin/python${PYTHON_VERSION} \"\$@\"" > /spark_env.sh
@@ -236,7 +239,7 @@ RUN if [[ ${MXNET_PACKAGE} == "mxnet-nightly-cu"* ]]; then \
 RUN cd /horovod && \
     python setup.py sdist && \
     ldconfig /usr/local/cuda/targets/x86_64-linux/lib/stubs && \
-    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray]" && \
+    bash -c "${HOROVOD_BUILD_FLAGS} HOROVOD_WITH_TENSORFLOW=1 HOROVOD_WITH_PYTORCH=1 HOROVOD_WITH_MXNET=1 pip install --no-cache-dir -v $(ls /horovod/dist/horovod-*.tar.gz)[spark,ray] 'protobuf~=3.20'" && \
     ldconfig
 
 # Show the effective python package version to easily spot version differences
